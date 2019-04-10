@@ -7,6 +7,7 @@ import com.atguigu.sparkmall1015.common.bean.UserVisitAction
 import com.atguigu.sparkmall1015.common.util.{JdbcUtil, PropertiesUtil}
 import com.atguigu.sparkmall1015.offline.acc.CategoryCountAccumulator
 import com.atguigu.sparkmall1015.offline.bean.CategoryCount
+import com.atguigu.sparkmall1015.offline.handler.{CategoryCountHandler, Top10CategoryTop10SessionHandler}
 import org.apache.spark.SparkConf
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
@@ -53,61 +54,14 @@ object OfflineApp {
       sql+=" and ui.age<="+endAge
     }
     import  sparkSession.implicits._
-    val rdd: RDD[UserVisitAction] = sparkSession.sql(sql).as[UserVisitAction].rdd
+    val userVisitActionRdd: RDD[UserVisitAction] = sparkSession.sql(sql).as[UserVisitAction].rdd
 
-    val accumulator = new CategoryCountAccumulator
-    sparkSession.sparkContext.register(accumulator)
-  //2 利用累加器进行统计操作 ，得到一个map结构的统计结果
-    rdd.foreach { userVisitAction =>
-      if (userVisitAction.click_category_id != -1L) {
-        accumulator.add(userVisitAction.click_category_id + "_click")
-
-      } else if (userVisitAction.order_category_ids != null) {
-        val cidArray: Array[String] = userVisitAction.order_category_ids.split(",")
-        for (cid <- cidArray) {
-          accumulator.add(cid + "_order")
-        }
-
-      } else if (userVisitAction.pay_category_ids != null) {
-        val cidArray: Array[String] = userVisitAction.pay_category_ids.split(",")
-        for (cid <- cidArray) {
-          accumulator.add(cid + "_pay")
-        }
-
-
-      }
-    }
-    val categoryCountMap: mutable.HashMap[String, Long] = accumulator.value
-    println(categoryCountMap.mkString("\n"))
-                                //cid=1
-    val countGroupbyCidMap: Map[String, mutable.HashMap[String, Long]] = categoryCountMap.groupBy{case (cid_action,count)=>cid_action.split("_")(0) }
-    //调整结构
-    val categoryCountItr: immutable.Iterable[CategoryCount] = countGroupbyCidMap.map { case (cid, countMap) =>
-      CategoryCount(taskId, cid, countMap.getOrElse(cid + "_click", 0L), countMap.getOrElse(cid + "_order", 0L), countMap.getOrElse(cid + "_pay", 0L))
-
-    }
-    //取前十
-    val sortedCategoryCountList: List[CategoryCount] = categoryCountItr.toList.sortWith { (categoryCount1, categoryCount2) =>
-      if (categoryCount1.clickCount > categoryCount2.clickCount) {
-        true
-      } else if (categoryCount1.clickCount == categoryCount2.clickCount) {
-        if (categoryCount1.orderCount > categoryCount2.orderCount) {
-          true
-        } else {
-          false
-        }
-      }
-      else {
-        false
-      }
-    }
-    //截取前十
-    val top10List: List[CategoryCount] = sortedCategoryCountList.take(10)
-     // 调整成array
-    val top10ArrayList: List[Array[Any]] = top10List.map{categoryCount=>Array(categoryCount.taskId,categoryCount.cid,categoryCount.clickCount,categoryCount.orderCount,categoryCount.payCount)}
-     //保存到mysql中
-     JdbcUtil.executeBatchUpdate("insert into category_top10 values(?,?,?,?,?)",top10ArrayList)
-
+    //需求一  十大热门品类
+    val categoryCountTop10List: List[CategoryCount] = CategoryCountHandler.handle(sparkSession,userVisitActionRdd,taskId)
+    println("需求一 完成")
+    //需求二  十大热门品类的十大活跃session
+    Top10CategoryTop10SessionHandler.handle(sparkSession,userVisitActionRdd,categoryCountTop10List,taskId)
+    println("需求二 完成")
   }
 
 }
