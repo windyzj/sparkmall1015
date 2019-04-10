@@ -25,7 +25,7 @@ object Top10CategoryTop10SessionHandler {
     val filteredUserActionRDD: RDD[UserVisitAction] = userVisitActionRdd.filter { userVisitAction =>
       categoryCountTop10ListBC.value.contains(userVisitAction.click_category_id.toString)
     }
-    f
+
 
     //    2、 按照品类和sessionId进行分组 =>(cid+sessionId,1L) .reducebykey  => RDD[cid_sessionid,count]
     //得到每个品类每个session的点击次数
