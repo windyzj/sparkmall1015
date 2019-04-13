@@ -2,7 +2,7 @@ package com.atguigu.sparkmall1015.realtime.app
 
 import com.atguigu.sparkmall1015.common.util.MyKafkaUtil
 import com.atguigu.sparkmall1015.realtime.bean.AdsLog
-import com.atguigu.sparkmall1015.realtime.handler.{AreaCityAdsDaycountHandler, AreaTop3AdsCountHandler, BlacklistHandler}
+import com.atguigu.sparkmall1015.realtime.handler.{AreaCityAdsDaycountHandler, AreaTop3AdsCountHandler, BlacklistHandler, LastHourAdsCountHandler}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.spark.streaming.dstream.{DStream, InputDStream}
 import org.apache.spark.{SparkConf, SparkContext}
@@ -19,24 +19,30 @@ object RealtimeApp {
       val adsLogArray: Array[String] = adsLogString.split(" ")
       AdsLog(adsLogArray(0).toLong, adsLogArray(1), adsLogArray(2), adsLogArray(3).toLong, adsLogArray(4).toLong)
     }
+//    adsLogDstream.foreachRDD{rdd=>
+//      println(rdd.collect().mkString("\n"))
+//    }
 
     //需求 五  黑名单
-    val filteredAdslogDstream: DStream[AdsLog] = BlacklistHandler.checkBlackList(ssc.sparkContext,adsLogDstream)
+   // val filteredAdslogDstream: DStream[AdsLog] = BlacklistHandler.checkBlackList(ssc.sparkContext,adsLogDstream)
+  //  filteredAdslogDstream.cache()
+
 
     //更新点击量
-    BlacklistHandler.updateUserAdsCount(filteredAdslogDstream)
+//    BlacklistHandler.updateUserAdsCount(filteredAdslogDstream)
 
 
     //需求六  每天每地区每城市每广告的点击量
-    val areaCityAdsDaycountDstream: DStream[(String, Long)] = AreaCityAdsDaycountHandler.handle(filteredAdslogDstream: DStream[AdsLog] ,ssc.sparkContext)
+  //  val areaCityAdsDaycountDstream: DStream[(String, Long)] = AreaCityAdsDaycountHandler.handle(filteredAdslogDstream: DStream[AdsLog] ,ssc.sparkContext)
 
 //      recordDstream.foreachRDD{rdd=>
 //        println(rdd.map(_.value()) .collect().mkString("\n"))
 //      }
     //需求七
-    AreaTop3AdsCountHandler.handle(areaCityAdsDaycountDstream)
+   // AreaTop3AdsCountHandler.handle(areaCityAdsDaycountDstream)
 
-
+    //需求八
+     LastHourAdsCountHandler.handle(adsLogDstream)
 
     ssc.start()
     ssc.awaitTermination()
