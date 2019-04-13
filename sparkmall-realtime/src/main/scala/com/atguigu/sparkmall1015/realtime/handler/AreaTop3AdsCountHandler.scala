@@ -28,7 +28,9 @@ object AreaTop3AdsCountHandler {
 //  hmset (datekey ,Map[area,JSON]  )       map=>  json
 //  hmset (key ,Map[String,String]  )
   def handle(areaCityAdsDaycountDstream:  DStream[(String, Long)]): Unit ={
+      //1231231231
 
+   // /12312312331123
   }
 
 }
