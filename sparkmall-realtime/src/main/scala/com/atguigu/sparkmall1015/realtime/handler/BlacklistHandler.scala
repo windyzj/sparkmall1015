@@ -1,4 +1,4 @@
-package com.atguigu.sparkmall1015.realtime
+package com.atguigu.sparkmall1015.realtime.handler
 
 import java.text.SimpleDateFormat
 import java.util
@@ -64,16 +64,20 @@ object BlacklistHandler {
     */
   def checkBlackList(sparkContext: SparkContext, adsLogDstream: DStream[AdsLog]): DStream[AdsLog] = {
 
+    //以下操作会每行连接一次 做一次redis查询 因为一个时间周期内blacklist是不会变化的所有反复查询会浪费性能
     //    val filterDstream: DStream[AdsLog] = adsLogDstream.filter { adslog =>
     //      val jedis: Jedis = RedisUtil.getJedisClient
     //      !jedis.sismember("blacklist", adslog.uid.toString)
     //    }
 
-    //    val jedis: Jedis = RedisUtil.getJedisClient   //只执行一次 driver中  会造成黑名单无法更新
+    //以下操作 只执行一次 driver中  会造成黑名单无法更新
+    //    val jedis: Jedis = RedisUtil.getJedisClient
     //    val blackList: util.Set[String] = jedis.smembers("blacklist")
     //    val blacklistBC: Broadcast[util.Set[String]] = sparkContext.broadcast(blackList)
+
       val filteredDstream: DStream[AdsLog] = adsLogDstream.transform { rdd =>
-      val jedis: Jedis = RedisUtil.getJedisClient //每时间间隔执行一次 driver中
+       //每时间间隔执行一次 driver中
+      val jedis: Jedis = RedisUtil.getJedisClient
       val blackList: util.Set[String] = jedis.smembers("blacklist")
       jedis.close()
       //每个固定周期从redis中取到最新的黑名单 通过广播变量发送给executor
